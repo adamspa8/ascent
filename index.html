@@ -296,7 +296,8 @@
   + '.routine-include-checkbox{ width:18px; height:18px; accent-color: var(--accent-strength); flex:none; }'
   + '.footer{ padding: 20px 0 40px; font-size:12px; color: var(--ink-muted); }'
   + '.auth-screen{ max-width:420px; margin:0 auto; padding-top:15vh; text-align:center; display:flex; flex-direction:column; gap:16px; align-items:center; }'
-  + '.auth-screen .wordmark{ font-size:34px; }' + '.auth-screen .btn-primary{ align-self:center; }'
+  + '.auth-screen .wordmark{ font-size:34px; }'
+  + '.auth-screen .btn-primary{ align-self:center; }'
   + '.auth-error{ color: var(--accent-strength); font-size:13px; }'
   + '.config-screen{ max-width:560px; margin:0 auto; padding: 15vh 20px 40px; display:flex; flex-direction:column; gap:12px; }'
   + '.config-screen h2{ font-size:20px; }'
@@ -321,9 +322,9 @@
     apiKey: "AIzaSyD8-2-wTar3WupvAkBcY8_5ncnSJvLEG8A",
     authDomain: "ascent-60b38.firebaseapp.com",
     projectId: "ascent-60b38",
-  storageBucket: "ascent-60b38.firebasestorage.app",
-  messagingSenderId: "1034607244562",
-  appId: "1:1034607244562:web:ea347f372d9af034f42fcb",  
+    storageBucket: "ascent-60b38.firebasestorage.app",
+    messagingSenderId: "1034607244562",
+    appId: "1:1034607244562:web:ea347f372d9af034f42fcb"
   };
   /* ============================================================================ */
 
@@ -652,9 +653,9 @@
     var weightVal = prefill && prefill.weight ? prefill.weight : '';
     var weightPlaceholder = STATE.unit + ' (opt.)';
     return '<div class="set-row">'
-      + '<input type="number" inputmode="numeric" min="0" step="1" class="set-reps" placeholder="reps" value="'+repsVal+'" data-field="reps" aria-label="Reps">'
-      + '<span class="set-x">×</span>'
       + '<input type="number" inputmode="decimal" min="0" step="0.5" class="set-weight" placeholder="'+weightPlaceholder+'" value="'+weightVal+'" data-field="weight" aria-label="Weight ('+STATE.unit+')">'
+      + '<span class="set-x">×</span>'
+      + '<input type="number" inputmode="numeric" min="0" step="1" class="set-reps" placeholder="reps" value="'+repsVal+'" data-field="reps" aria-label="Reps">'
       + '<button type="button" class="set-remove" data-action="remove-set" aria-label="Remove set">−</button>'
       + '</div>';
   }
@@ -930,7 +931,7 @@
         var metaBits = [];
         if (isStrength) {
           var setsText = w.sets.map(function(s){
-            return s.weight > 0 ? (s.reps + '×' + s.weight + ' ' + STATE.unit) : (s.reps + ' reps');
+            return s.weight > 0 ? (s.weight + ' ' + STATE.unit + '×' + s.reps) : (s.reps + ' reps');
           }).join(', ');
           metaBits.push(setsText);
         }
@@ -985,7 +986,7 @@
           var bits = [];
           if (isStrength) {
             bits.push(w.sets.map(function(s){
-              return s.weight > 0 ? (s.reps + '×' + s.weight + ' ' + STATE.unit) : (s.reps + ' reps');
+              return s.weight > 0 ? (s.weight + ' ' + STATE.unit + '×' + s.reps) : (s.reps + ' reps');
             }).join(', '));
           }
           if (w.duration) bits.push(w.duration + ' min');
