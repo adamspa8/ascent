@@ -1,0 +1,1343 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ascent</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Karla:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script id="app-logic">
+(function(){
+  /* ================= constants ================= */
+  var APP_TITLE = 'Ascent';
+  var STORAGE_KEY = 'ascent-tracker-state-v1';
+
+  var CSS_TEXT = ''
+  + ':root{'
+  + '  --font-display: "Anton", "Arial Narrow", sans-serif;'
+  + '  --font-body: "Karla", system-ui, -apple-system, "Segoe UI", sans-serif;'
+  + '  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;'
+  + '  --surface-page: #F9FAF5;'
+  + '  --surface-card: #F1F3EC;'
+  + '  --surface-card-inset: #E7EADF;'
+  + '  --ink: #171B14;'
+  + '  --ink-secondary: #52564C;'
+  + '  --ink-muted: #83867C;'
+  + '  --gridline: #DEE1D6;'
+  + '  --border: #C7CABC;'
+  + '  --accent-strength: #C1442D;'
+  + '  --accent-strength-wash: rgba(193,68,45,0.10);'
+  + '  --accent-general: #1E8A5A;'
+  + '  --accent-general-wash: rgba(30,138,90,0.10);'
+  + '  --accent-gold: #9C6B1F;'
+  + '  --accent-gold-wash: rgba(156,107,31,0.14);'
+  + '  --focus-ring: #2A66C7;'
+  + '  --radius: 14px;'
+  + '  --radius-sm: 8px;'
+  + '  color-scheme: light;'
+  + '}'
+  + '@media (prefers-color-scheme: dark){'
+  + '  :root:not([data-theme="light"]){'
+  + '    --surface-page: #101410;'
+  + '    --surface-card: #151A13;'
+  + '    --surface-card-inset: #1D2319;'
+  + '    --ink: #F1F3EC;'
+  + '    --ink-secondary: #C3C6B9;'
+  + '    --ink-muted: #8C8F82;'
+  + '    --gridline: #2B2F26;'
+  + '    --border: #3A3E33;'
+  + '    --accent-strength: #E2643F;'
+  + '    --accent-strength-wash: rgba(226,100,63,0.16);'
+  + '    --accent-general: #34A06E;'
+  + '    --accent-general-wash: rgba(52,160,110,0.16);'
+  + '    --accent-gold: #C79A42;'
+  + '    --accent-gold-wash: rgba(199,154,66,0.18);'
+  + '    --focus-ring: #7FADFF;'
+  + '    color-scheme: dark;'
+  + '  }'
+  + '}'
+  + ':root[data-theme="dark"]{'
+  + '  --surface-page: #101410;'
+  + '  --surface-card: #151A13;'
+  + '  --surface-card-inset: #1D2319;'
+  + '  --ink: #F1F3EC;'
+  + '  --ink-secondary: #C3C6B9;'
+  + '  --ink-muted: #8C8F82;'
+  + '  --gridline: #2B2F26;'
+  + '  --border: #3A3E33;'
+  + '  --accent-strength: #E2643F;'
+  + '  --accent-strength-wash: rgba(226,100,63,0.16);'
+  + '  --accent-general: #34A06E;'
+  + '  --accent-general-wash: rgba(52,160,110,0.16);'
+  + '  --accent-gold: #C79A42;'
+  + '  --accent-gold-wash: rgba(199,154,66,0.18);'
+  + '  --focus-ring: #7FADFF;'
+  + '  color-scheme: dark;'
+  + '}'
+  + '*{box-sizing:border-box;}'
+  + 'html,body{margin:0;padding:0;}'
+  + 'body{'
+  + '  background: var(--surface-page);'
+  + '  color: var(--ink);'
+  + '  font-family: var(--font-body);'
+  + '  font-size: 16px;'
+  + '  line-height: 1.5;'
+  + '  -webkit-font-smoothing: antialiased;'
+  + '}'
+  + 'h1,h2,h3{margin:0;}'
+  + 'p{margin:0;}'
+  + 'button{font-family:inherit;}'
+  + '.wrap{'
+  + '  max-width: 720px;'
+  + '  margin: 0 auto;'
+  + '  padding: 0 20px;'
+  + '}'
+  + '.topbar{'
+  + '  position: sticky; top:0; z-index:10;'
+  + '  background: var(--surface-page);'
+  + '  border-bottom: 1px solid var(--border);'
+  + '  padding: 14px 0;'
+  + '}'
+  + '.topbar-inner{'
+  + '  display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;'
+  + '}'
+  + '.topbar-right{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }'
+  + '.wordmark{'
+  + '  font-family: var(--font-display);'
+  + '  font-size: 26px;'
+  + '  letter-spacing: 0.04em;'
+  + '  text-transform: uppercase;'
+  + '  color: var(--ink);'
+  + '}'
+  + '.unit-toggle{'
+  + '  display:inline-flex; border:1px solid var(--border); border-radius:20px; overflow:hidden; flex:none;'
+  + '}'
+  + '.unit-btn{'
+  + '  background: var(--surface-card); border:none; padding:4px 11px; font-size:12px; font-weight:700;'
+  + '  color: var(--ink-secondary); cursor:pointer; font-family: var(--font-mono);'
+  + '}'
+  + '.unit-btn.is-active{ background: var(--accent-strength); color: #FBF6F0; }'
+  + '.unit-btn:not(.is-active):hover{ background: var(--accent-strength-wash); color: var(--accent-strength); }'
+  + '.sync-badge{'
+  + '  display:inline-flex; align-items:center; gap:6px;'
+  + '  font-size: 12px; color: var(--ink-secondary);'
+  + '  white-space: nowrap;'
+  + '}'
+  + '.sync-dot{'
+  + '  width:8px; height:8px; border-radius:50%; background: var(--ink-muted); flex:none;'
+  + '}'
+  + '.sync-badge.is-synced .sync-dot{ background: var(--accent-general); }'
+  + '.sync-badge.is-ready .sync-dot{ background: var(--accent-gold); }'
+  + '.sync-badge.is-local .sync-dot{ background: var(--accent-gold); }'
+  + '.sync-badge.is-readonly .sync-dot{ background: var(--ink-muted); }'
+  + '.sync-badge.is-error .sync-dot{ background: var(--accent-strength); }'
+  + 'main{ padding: 24px 0 8px; display:flex; flex-direction:column; gap: 20px; }'
+  + '.card{'
+  + '  background: var(--surface-card);'
+  + '  border: 1px solid var(--border);'
+  + '  border-radius: var(--radius);'
+  + '  padding: 20px;'
+  + '  display:flex; flex-direction:column; gap:14px;'
+  + '}'
+  + '.card h2{'
+  + '  font-family: var(--font-display);'
+  + '  font-size: 15px;'
+  + '  letter-spacing: 0.08em;'
+  + '  text-transform: uppercase;'
+  + '  color: var(--ink-secondary);'
+  + '}'
+  + '.field-row{ display:flex; gap:12px; flex-wrap:wrap; }'
+  + '.field{ display:flex; flex-direction:column; gap:6px; flex: 1 1 140px; }'
+  + '.field-grow{ flex: 2 1 220px; }'
+  + '.field-label{ font-size:13px; color: var(--ink-secondary); font-weight:600; }'
+  + 'input[type="text"], input[type="date"], input[type="number"], select, textarea{'
+  + '  font-family: var(--font-body);'
+  + '  font-size: 15px;'
+  + '  padding: 9px 10px;'
+  + '  border: 1px solid var(--border);'
+  + '  border-radius: var(--radius-sm);'
+  + '  background: var(--surface-card-inset);'
+  + '  color: var(--ink);'
+  + '  width: 100%;'
+  + '}'
+  + 'input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible{'
+  + '  outline: 2px solid var(--focus-ring); outline-offset: 2px;'
+  + '}'
+  + '.sets-block{ display:flex; flex-direction:column; gap:8px; }'
+  + '#sets-list{ display:flex; flex-direction:column; gap:8px; }'
+  + '.set-row{ display:flex; align-items:center; gap:8px; }'
+  + '.set-row input{ width: auto; flex: 1 1 0; min-width: 0; }'
+  + '.set-x{ color: var(--ink-muted); font-family: var(--font-mono); }'
+  + '.set-remove{'
+  + '  flex:none; width:32px; height:32px; border-radius:50%;'
+  + '  border:1px solid var(--border); background: var(--surface-card);'
+  + '  color: var(--ink-secondary); font-size:18px; line-height:1; cursor:pointer;'
+  + '}'
+  + '.set-remove:hover{ background: var(--accent-strength-wash); color: var(--accent-strength); border-color: var(--accent-strength); }'
+  + '.hint{ font-size:12px; color: var(--ink-muted); }'
+  + '.btn-ghost{'
+  + '  align-self:flex-start;'
+  + '  background: transparent; border: 1px dashed var(--border); color: var(--ink-secondary);'
+  + '  padding: 7px 12px; border-radius: var(--radius-sm); cursor:pointer; font-size:14px; font-weight:600;'
+  + '}'
+  + '.btn-ghost:hover{ border-color: var(--accent-general); color: var(--accent-general); }'
+  + '.btn-primary{'
+  + '  align-self:flex-start;'
+  + '  background: var(--accent-strength); color: #FBF6F0; border:none;'
+  + '  padding: 11px 22px; border-radius: var(--radius-sm); cursor:pointer;'
+  + '  font-size:15px; font-weight:700; letter-spacing:0.01em;'
+  + '}'
+  + '.btn-primary:hover{ filter: brightness(1.08); }'
+  + '.stat-row{ display:flex; gap:12px; }'
+  + '.stat-tile{'
+  + '  flex:1; background: var(--surface-card-inset); border-radius: var(--radius-sm);'
+  + '  padding: 12px 14px; display:flex; flex-direction:column; gap:2px;'
+  + '}'
+  + '.stat-value{ font-family: var(--font-body); font-weight:700; font-size:30px; color: var(--ink); }'
+  + '.stat-label{ font-size:12px; color: var(--ink-secondary); text-transform:uppercase; letter-spacing:0.04em; }'
+  + '.stat-tile.is-qualified{ background: var(--accent-general-wash); }'
+  + '.stat-tile.is-qualified .stat-value{ color: var(--accent-general); }'
+  + '.heatmap{'
+  + '  display:flex; gap:6px; overflow-x:auto; padding-bottom:2px;'
+  + '}'
+  + '.week-cell{ width:22px; height:22px; border-radius:6px; background: var(--gridline); flex:none; }'
+  + '.week-cell.is-partial{ background: var(--accent-strength); opacity:0.45; }'
+  + '.week-cell.is-qualified{ background: var(--accent-strength); opacity:1; }'
+  + '.week-cell.is-current{ outline: 2px dashed var(--border); outline-offset:2px; }'
+  + '.progress-controls{ display:flex; align-items:center; gap:10px; }'
+  + '.progress-controls select{ width:auto; flex: 0 1 260px; }'
+  + '.chart-caption{ font-size:13px; color: var(--ink-secondary); }'
+  + '.chart-footnote{ font-size:12px; color: var(--ink-muted); }'
+  + '.chart-svg{ width:100%; height:auto; overflow:visible; }'
+  + '.chart-grid{ stroke: var(--gridline); stroke-width:1; }'
+  + '.chart-tick{ font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size:10px; fill: var(--ink-muted); }'
+  + '.chart-area{ fill: var(--accent-strength); opacity:0.10; stroke:none; }'
+  + '.chart-line{ fill:none; stroke: var(--accent-strength); stroke-width:2; stroke-linejoin:round; stroke-linecap:round; }'
+  + '.chart-dot{ fill: var(--accent-strength); stroke: var(--surface-card); stroke-width:2; }'
+  + '.chart-endlabel{ font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size:12px; fill: var(--ink); font-weight:600; }'
+  + '.empty-note{ font-size:14px; color: var(--ink-secondary); }'
+  + '.history-group{ display:flex; flex-direction:column; gap:8px; }'
+  + '.history-date{ font-family: var(--font-mono); font-size:12px; text-transform:uppercase; letter-spacing:0.06em; color: var(--ink-muted); }'
+  + '.history-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }'
+  + '.history-item{'
+  + '  position:relative; background: var(--surface-card-inset); border-radius: var(--radius-sm);'
+  + '  padding: 10px 78px 10px 12px; display:flex; flex-direction:column; gap:4px;'
+  + '}'
+  + '.history-item-main{ display:flex; align-items:center; gap:8px; }'
+  + '.history-name{ font-weight:600; }'
+  + '.badge{'
+  + '  font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;'
+  + '  padding:2px 8px; border-radius:20px; flex:none;'
+  + '}'
+  + '.badge-strength{ background: var(--accent-strength-wash); color: var(--accent-strength); }'
+  + '.badge-general{ background: var(--accent-general-wash); color: var(--accent-general); }'
+  + '.history-meta{ font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size:13px; color: var(--ink-secondary); }'
+  + '.history-actions{ position:absolute; right:8px; top:8px; display:flex; gap:2px; }'
+  + '.history-action-btn{'
+  + '  background:none; border:none; cursor:pointer;'
+  + '  font-size:12px; color: var(--ink-muted); padding:4px 6px; border-radius:6px;'
+  + '}'
+  + '.history-action-btn.is-edit:hover{ color: var(--accent-general); background: var(--accent-general-wash); }'
+  + '.history-action-btn.is-delete:hover{ color: var(--accent-strength); background: var(--accent-strength-wash); }'
+  + '.log-heading-row{ display:flex; align-items:center; justify-content:space-between; gap:8px; }'
+  + '.editing-tag{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color: var(--accent-general); }'
+  + '.form-actions{ display:flex; gap:10px; align-items:center; }'
+  + '.calendar-header{ display:flex; align-items:center; justify-content:space-between; gap:8px; }'
+  + '.cal-nav-btn{'
+  + '  background: var(--surface-card-inset); border:1px solid var(--border); border-radius:50%;'
+  + '  width:30px; height:30px; font-size:16px; line-height:1; color: var(--ink-secondary); cursor:pointer;'
+  + '}'
+  + '.cal-nav-btn:hover{ border-color: var(--accent-strength); color: var(--accent-strength); }'
+  + '.cal-month-label{ font-weight:700; font-size:15px; }'
+  + '.cal-weekdays{ display:grid; grid-template-columns: repeat(7, 1fr); gap:4px; }'
+  + '.cal-weekday{'
+  + '  text-align:center; font-size:11px; text-transform:uppercase; letter-spacing:0.04em;'
+  + '  color: var(--ink-muted); padding-bottom:2px;'
+  + '}'
+  + '.cal-grid{ display:grid; grid-template-columns: repeat(7, 1fr); gap:4px; }'
+  + '.cal-cell{'
+  + '  aspect-ratio: 1 / 1; border-radius:8px; border:none; padding:0; background: var(--surface-card-inset);'
+  + '  color: var(--ink-secondary); font-family: var(--font-mono); font-variant-numeric: tabular-nums;'
+  + '  font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center;'
+  + '}'
+  + '.cal-cell.is-empty{ background:transparent; cursor:default; }'
+  + '.cal-cell.is-logged{ background: var(--accent-strength); color:#FBF6F0; font-weight:700; }'
+  + '.cal-cell.is-today{ box-shadow: inset 0 0 0 2px var(--accent-gold); }'
+  + '.cal-cell.is-selected{ box-shadow: inset 0 0 0 2px var(--ink); }'
+  + '.cal-cell:hover:not(.is-empty){ filter:brightness(1.08); }'
+  + '.cal-today-btn{ margin-top:2px; }'
+  + '.cal-detail{'
+  + '  background: var(--surface-card-inset); border-radius: var(--radius-sm); padding:10px 12px;'
+  + '  display:flex; flex-direction:column; gap:6px;'
+  + '}'
+  + '.cal-detail-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:4px; font-size:13px; }'
+  + '.btn-small{ padding:5px 10px; font-size:12px; }'
+  + '.routine-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }'
+  + '.routine-item{'
+  + '  background: var(--surface-card-inset); border-radius: var(--radius-sm); padding:10px 12px;'
+  + '  display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;'
+  + '}'
+  + '.routine-item-main{ display:flex; flex-direction:column; gap:2px; min-width:0; }'
+  + '.routine-item-actions{ display:flex; gap:2px; align-items:center; flex:none; }'
+  + '#routine-exercises-list, #routine-draft-exercises{ display:flex; flex-direction:column; gap:10px; }'
+  + '.routine-exercise-block{'
+  + '  background: var(--surface-card-inset); border-radius: var(--radius-sm); padding:12px;'
+  + '  display:flex; flex-direction:column; gap:8px;'
+  + '}'
+  + '.routine-exercise-header{ display:flex; align-items:center; gap:8px; }'
+  + '.routine-exercise-header .routine-exercise-name{ flex:1; }'
+  + '.routine-sets-list{ display:flex; flex-direction:column; gap:8px; }'
+  + '.routine-exercise-toggle{ display:flex; align-items:center; gap:8px; cursor:pointer; }'
+  + '.routine-include-checkbox{ width:18px; height:18px; accent-color: var(--accent-strength); flex:none; }'
+  + '.footer{ padding: 20px 0 40px; font-size:12px; color: var(--ink-muted); }'
+  + '.auth-screen{ max-width:420px; margin:0 auto; padding-top:15vh; text-align:center; display:flex; flex-direction:column; gap:16px; align-items:center; }'
+  + '.auth-screen .wordmark{ font-size:34px; }'
+  + '.auth-error{ color: var(--accent-strength); font-size:13px; }'
+  + '.config-screen{ max-width:560px; margin:0 auto; padding: 15vh 20px 40px; display:flex; flex-direction:column; gap:12px; }'
+  + '.config-screen h2{ font-size:20px; }'
+  + '.config-screen p{ color: var(--ink-secondary); line-height:1.6; }'
+  + '.config-screen code{ background: var(--surface-card-inset); padding:2px 6px; border-radius:4px; font-family: var(--font-mono); font-size:13px; color: var(--ink); }'
+  + '@media (max-width:480px){'
+  + '  .wordmark{ font-size:22px; }'
+  + '  .stat-value{ font-size:26px; }'
+  + '}'
+  + '@media (prefers-reduced-motion: reduce){'
+  + '  *{ transition:none !important; animation:none !important; }'
+  + '}';
+
+  var EXERCISE_SUGGESTIONS = ['Squat','Bench Press','Deadlift','Overhead Press','Barbell Row','Pull-Up','Push-Up','Lunge','Plank','Bicep Curl','Run','Hike','Bike Ride','Swim','Yoga'];
+
+  /* ============ FIREBASE CONFIG =============================================
+     Paste the values from your Firebase project's Settings > General >
+     "Your apps" > SDK setup and configuration here. See SETUP.md for the
+     step-by-step walkthrough. Until these are filled in, Ascent shows a
+     one-time setup screen instead of the app. */
+  var firebaseConfig = {
+    apiKey: "PASTE_YOUR_API_KEY",
+    authDomain: "PASTE_YOUR_PROJECT.firebaseapp.com",
+    projectId: "PASTE_YOUR_PROJECT_ID",
+    storageBucket: "PASTE_YOUR_PROJECT.appspot.com",
+    messagingSenderId: "PASTE_YOUR_SENDER_ID",
+    appId: "PASTE_YOUR_APP_ID"
+  };
+  /* ============================================================================ */
+
+  /* ================= state ================= */
+  var STATE = normalizeState(loadLocalCache());
+  var selectedExercise = null;
+  var syncStatus = 'checking'; // checking | syncing | synced | offline | error
+  var firebaseReady = false;
+  var authReady = false;
+  var authError = null;
+  var currentUser = null;
+  var auth = null, db = null, unsubscribeSnapshot = null;
+  var editingId = null;
+  var calendarView = (function(){ var t = new Date(); return { year: t.getFullYear(), month: t.getMonth() }; })();
+  var calendarSelected = null;
+  var routineDraft = null; // { routineId, date, exercises: [{name, include, sets}] } while logging a routine
+  var routineEditorState = null; // { id } (id null = creating new) while the routine editor is open
+
+  function clearDraftModes(){
+    editingId = null;
+    routineDraft = null;
+    routineEditorState = null;
+  }
+
+  function loadLocalCache(){
+    // Local cache only — an instant paint before Firebase Auth resolves and the
+    // first Firestore snapshot arrives. Firestore is the source of truth once
+    // signed in; this is just what a returning, already-authenticated device
+    // shows in the first frame instead of a blank screen.
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.workouts)) return parsed;
+      }
+    } catch(e){}
+    return { workouts: [] };
+  }
+  function normalizeState(data){
+    var result = (data && Array.isArray(data.workouts)) ? data : { workouts: [] };
+    if (result.unit !== 'lb' && result.unit !== 'kg') result.unit = 'lb';
+    if (!Array.isArray(result.routines)) result.routines = [];
+    return result;
+  }
+
+  /* ================= helpers ================= */
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+    });
+  }
+  function pad(n){ return n < 10 ? '0'+n : ''+n; }
+  function isoLocal(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+  function todayISO(){ return isoLocal(new Date()); }
+  function parseISO(iso){
+    var parts = iso.split('-');
+    return new Date(Number(parts[0]), Number(parts[1])-1, Number(parts[2]));
+  }
+  function formatDateLabel(iso){
+    var today = todayISO();
+    if (iso === today) return 'Today';
+    var yestD = new Date(); yestD.setDate(yestD.getDate()-1);
+    if (iso === isoLocal(yestD)) return 'Yesterday';
+    var d = parseISO(iso);
+    return d.toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric' });
+  }
+  function makeId(){ return 'w_' + Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+  /* ================= derived data ================= */
+  var WEEK_GOAL = 3;
+  function startOfWeekDate(d){
+    var s = new Date(d); s.setHours(0,0,0,0); s.setDate(s.getDate() - s.getDay());
+    return s;
+  }
+  function weekKey(d){ return isoLocal(startOfWeekDate(d)); }
+  function weekSessionCounts(){
+    // Counts DAYS with at least one workout logged, per week — not the number
+    // of exercise entries. A day with a 4-exercise routine logged still counts
+    // once, the same as a day with a single activity logged.
+    var seenDaysByWeek = {};
+    var counts = {};
+    STATE.workouts.forEach(function(w){
+      var wk = weekKey(parseISO(w.date));
+      if (!seenDaysByWeek[wk]) seenDaysByWeek[wk] = {};
+      if (!seenDaysByWeek[wk][w.date]) {
+        seenDaysByWeek[wk][w.date] = true;
+        counts[wk] = (counts[wk] || 0) + 1;
+      }
+    });
+    return counts;
+  }
+  function computeWeekStreak(){
+    var counts = weekSessionCounts();
+    var cursor = startOfWeekDate(new Date());
+    // An in-progress current week that hasn't hit the goal yet doesn't break
+    // the streak (it just isn't counted until it does) — same idea as "today
+    // not logged yet" not breaking a day streak.
+    if ((counts[isoLocal(cursor)] || 0) < WEEK_GOAL) {
+      cursor.setDate(cursor.getDate() - 7);
+    }
+    var streak = 0;
+    while ((counts[isoLocal(cursor)] || 0) >= WEEK_GOAL) {
+      streak++;
+      cursor.setDate(cursor.getDate() - 7);
+    }
+    return streak;
+  }
+  function buildWeekCells(weeksCount){
+    var counts = weekSessionCounts();
+    var currentStart = startOfWeekDate(new Date());
+    var cells = [];
+    for (var i = weeksCount - 1; i >= 0; i--){
+      var start = new Date(currentStart); start.setDate(start.getDate() - i*7);
+      var key = isoLocal(start);
+      cells.push({ key: key, count: counts[key] || 0, isCurrent: i === 0 });
+    }
+    return cells;
+  }
+  function formatWeekLabel(iso){
+    var d = parseISO(iso);
+    return 'Week of ' + d.toLocaleDateString(undefined, { month:'short', day:'numeric' });
+  }
+  function workoutsForDate(iso){
+    return STATE.workouts.filter(function(w){ return w.date === iso; });
+  }
+  function monthLabel(year, month){
+    return new Date(year, month, 1).toLocaleDateString(undefined, { month:'long', year:'numeric' });
+  }
+  function buildCalendarGrid(year, month){
+    var startWeekday = new Date(year, month, 1).getDay();
+    var daysInMonth = new Date(year, month+1, 0).getDate();
+    var cells = [];
+    for (var i=0;i<startWeekday;i++) cells.push(null);
+    for (var d=1; d<=daysInMonth; d++) cells.push(new Date(year, month, d));
+    while (cells.length % 7 !== 0) cells.push(null);
+    return cells;
+  }
+  function exerciseNames(){
+    var seen = {}; var out = [];
+    STATE.workouts.forEach(function(w){
+      if (w.sets && w.sets.length && !seen[w.name]) { seen[w.name] = true; out.push(w.name); }
+    });
+    return out;
+  }
+  function renderExerciseDatalist(){
+    var names = EXERCISE_SUGGESTIONS.concat(exerciseNames());
+    var seen = {}; var out = [];
+    names.forEach(function(n){ if (!seen[n]) { seen[n]=true; out.push(n); } });
+    var options = out.map(function(n){ return '<option value="'+escapeHtml(n)+'">'; }).join('');
+    return '<datalist id="exercise-options">'+options+'</datalist>';
+  }
+  function seriesFor(name){
+    var entries = STATE.workouts.filter(function(w){ return w.name===name && w.sets && w.sets.length; });
+    entries = entries.slice().sort(function(a,b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+    var hasWeight = entries.some(function(w){ return w.sets.some(function(s){ return s.weight > 0; }); });
+    var points = entries.map(function(w){
+      if (hasWeight) {
+        var maxW = 0;
+        w.sets.forEach(function(s){ if (s.reps > 0 && s.weight > maxW) maxW = s.weight; });
+        return { date: w.date, value: maxW };
+      } else {
+        var totalReps = 0;
+        w.sets.forEach(function(s){ totalReps += (s.reps||0); });
+        return { date: w.date, value: totalReps };
+      }
+    });
+    return { metric: hasWeight ? 'weight' : 'reps', points: points };
+  }
+
+  /* ================= persistence (Firebase Auth + Firestore) ================= */
+  function setSyncStatus(s){ syncStatus = s; updateSyncBadge(); }
+
+  function isPlaceholderConfig(cfg){
+    return !cfg || !cfg.apiKey || cfg.apiKey.indexOf('PASTE_') === 0;
+  }
+
+  // A snapshot from another device (or our own write echoing back) always
+  // updates STATE right away — it's the source of truth. But if a form is
+  // open (editing an entry, mid-routine-log, editing a routine), rebuilding
+  // the whole page underneath the user's hands would wipe out whatever
+  // they're mid-typing. So: update the data now, defer the re-render until
+  // that draft closes (save/cancel already call renderAll() themselves).
+  function applyRemoteState(newState){
+    STATE = newState;
+    if (editingId || routineDraft || routineEditorState) return;
+    renderAll();
+  }
+
+  function persist(){
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(STATE)); } catch(e){}
+    if (!currentUser || !db) return;
+    db.collection('ascentUsers').doc(currentUser.uid).set(STATE).catch(function(){
+      setSyncStatus('error');
+    });
+  }
+
+  function handleSignIn(){
+    authError = null;
+    var provider = new firebase.auth.GoogleAuthProvider();
+    auth.signInWithPopup(provider).catch(function(err){
+      var code = err && err.code;
+      if (code === 'auth/popup-blocked' || code === 'auth/cancelled-popup-request' || code === 'auth/operation-not-supported-in-this-environment') {
+        auth.signInWithRedirect(provider);
+      } else {
+        authError = (err && err.message) ? err.message : 'Sign-in failed. Please try again.';
+        renderAll();
+      }
+    });
+  }
+
+  function initFirebaseApp(){
+    if (isPlaceholderConfig(firebaseConfig)) { firebaseReady = false; renderAll(); return; }
+    firebaseReady = true;
+    renderAll();
+    try {
+      firebase.initializeApp(firebaseConfig);
+      auth = firebase.auth();
+      db = firebase.firestore();
+      try { db.enablePersistence({ synchronizeTabs: true }).catch(function(){}); } catch(e){}
+      auth.getRedirectResult().catch(function(){});
+      auth.onAuthStateChanged(function(user){
+        authReady = true;
+        if (unsubscribeSnapshot) { unsubscribeSnapshot(); unsubscribeSnapshot = null; }
+        if (user) {
+          currentUser = user;
+          STATE = normalizeState(loadLocalCache());
+          renderAll();
+          setSyncStatus('checking');
+          unsubscribeSnapshot = db.collection('ascentUsers').doc(user.uid).onSnapshot(function(snap){
+            var data = (snap && snap.exists) ? snap.data() : null;
+            applyRemoteState(normalizeState(data));
+            setSyncStatus(snap.metadata.hasPendingWrites ? 'syncing' : (snap.metadata.fromCache ? 'offline' : 'synced'));
+          }, function(){
+            setSyncStatus('error');
+          });
+        } else {
+          currentUser = null;
+          renderAll();
+        }
+      });
+    } catch(e){
+      firebaseReady = false;
+      authError = 'Could not start Firebase — double check the config values.';
+      renderAll();
+    }
+  }
+
+  /* ================= mutations ================= */
+  var LB_PER_KG = 2.20462262;
+  function convertWeightValue(value, fromUnit, toUnit){
+    if (!value || fromUnit === toUnit) return value;
+    var kg = fromUnit === 'kg' ? value : value / LB_PER_KG;
+    var out = toUnit === 'kg' ? kg : kg * LB_PER_KG;
+    return Math.round(out * 10) / 10;
+  }
+  function setUnit(newUnit){
+    if (newUnit !== 'lb' && newUnit !== 'kg') return;
+    if (newUnit === STATE.unit) return;
+    var oldUnit = STATE.unit;
+    STATE.workouts.forEach(function(w){
+      if (w.sets && w.sets.length) {
+        w.sets.forEach(function(s){
+          if (s.weight > 0) s.weight = convertWeightValue(s.weight, oldUnit, newUnit);
+        });
+      }
+    });
+    STATE.unit = newUnit;
+    renderAll();
+    persist();
+  }
+  function addWorkout(entry){
+    STATE.workouts.push(entry);
+    renderAll();
+    persist();
+  }
+  function deleteWorkout(id){
+    STATE.workouts = STATE.workouts.filter(function(w){ return w.id !== id; });
+    renderAll();
+    persist();
+  }
+  function deleteRoutine(id){
+    STATE.routines = STATE.routines.filter(function(r){ return r.id !== id; });
+    renderAll();
+    persist();
+  }
+
+  /* ================= rendering ================= */
+  function syncStatusMeta(){
+    switch(syncStatus){
+      case 'synced': return { label:'Synced across devices', cls:'is-synced' };
+      case 'syncing': return { label:'Saving…', cls:'is-ready' };
+      case 'offline': return { label:'Offline — will sync when back online', cls:'is-local' };
+      case 'error': return { label:'Sync paused — will retry', cls:'is-error' };
+      default: return { label:'Checking sync…', cls:'is-checking' };
+    }
+  }
+  function updateSyncBadge(){
+    var el = document.getElementById('sync-badge');
+    if (!el) return;
+    var meta = syncStatusMeta();
+    el.className = 'sync-badge ' + meta.cls;
+    var label = el.querySelector('.sync-label');
+    if (label) label.textContent = meta.label;
+  }
+
+  function renderTopbar(){
+    var meta = syncStatusMeta();
+    var lbActive = STATE.unit === 'lb' ? ' is-active' : '';
+    var kgActive = STATE.unit === 'kg' ? ' is-active' : '';
+    var emailTitle = (currentUser && currentUser.email) ? ('Signed in as ' + currentUser.email) : 'Signed in';
+    return '<header class="topbar"><div class="wrap topbar-inner">'
+      + '<span class="wordmark">Ascent</span>'
+      + '<div class="topbar-right">'
+      + '<div class="unit-toggle" role="group" aria-label="Weight unit">'
+      + '<button type="button" class="unit-btn'+lbActive+'" data-action="set-unit" data-unit="lb">lb</button>'
+      + '<button type="button" class="unit-btn'+kgActive+'" data-action="set-unit" data-unit="kg">kg</button>'
+      + '</div>'
+      + '<span class="sync-badge ' + meta.cls + '" id="sync-badge"><span class="sync-dot"></span><span class="sync-label">' + escapeHtml(meta.label) + '</span></span>'
+      + '<button type="button" class="history-action-btn" data-action="sign-out" title="'+escapeHtml(emailTitle)+'">Sign out</button>'
+      + '</div>'
+      + '</div></header>';
+  }
+
+  function renderSetRow(prefill){
+    var repsVal = prefill && prefill.reps ? prefill.reps : '';
+    var weightVal = prefill && prefill.weight ? prefill.weight : '';
+    var weightPlaceholder = STATE.unit + ' (opt.)';
+    return '<div class="set-row">'
+      + '<input type="number" inputmode="numeric" min="0" step="1" class="set-reps" placeholder="reps" value="'+repsVal+'" data-field="reps" aria-label="Reps">'
+      + '<span class="set-x">×</span>'
+      + '<input type="number" inputmode="decimal" min="0" step="0.5" class="set-weight" placeholder="'+weightPlaceholder+'" value="'+weightVal+'" data-field="weight" aria-label="Weight ('+STATE.unit+')">'
+      + '<button type="button" class="set-remove" data-action="remove-set" aria-label="Remove set">−</button>'
+      + '</div>';
+  }
+
+  function renderLogCard(){
+    if (routineDraft) return renderRoutineDraftForm();
+
+    var editing = null;
+    if (editingId) {
+      for (var i=0;i<STATE.workouts.length;i++){ if (STATE.workouts[i].id === editingId) { editing = STATE.workouts[i]; break; } }
+    }
+
+    var dateVal = editing ? editing.date : todayISO();
+    var nameVal = editing ? escapeHtml(editing.name) : '';
+    var durationVal = (editing && editing.duration) ? editing.duration : '';
+    var notesVal = editing ? escapeHtml(editing.notes || '') : '';
+    var setsHtml = (editing && editing.sets && editing.sets.length)
+      ? editing.sets.map(function(s){ return renderSetRow(s); }).join('')
+      : renderSetRow();
+
+    var headingHtml = editing
+      ? '<div class="log-heading-row"><h2 id="log-heading">Edit session</h2><span class="editing-tag">Editing</span></div>'
+      : '<h2 id="log-heading">Log a session</h2>';
+
+    var actionsHtml = editing
+      ? '<div class="form-actions"><button type="submit" class="btn-primary">Save changes</button>'
+        + '<button type="button" class="btn-ghost" data-action="cancel-edit">Cancel</button></div>'
+      : '<button type="submit" class="btn-primary">Log session</button>';
+
+    return '<section class="card" aria-labelledby="log-heading">'
+      + headingHtml
+      + '<form id="log-form" class="log-form" data-editing-id="'+(editing ? escapeHtml(editing.id) : '')+'">'
+      + '<div class="field-row">'
+      + '<div class="field"><label class="field-label" for="f-date">Date</label>'
+      + '<input type="date" id="f-date" value="'+dateVal+'" required></div>'
+      + '<div class="field field-grow"><label class="field-label" for="f-name">Activity or exercise</label>'
+      + '<input type="text" id="f-name" list="exercise-options" placeholder="e.g. Bench Press, Hike, Yoga" value="'+nameVal+'" required autocomplete="off">'
+      + '</div>'
+      + '</div>'
+      + '<div class="sets-block">'
+      + '<div class="field-label">Sets</div>'
+      + '<div id="sets-list">'+setsHtml+'</div>'
+      + '<button type="button" class="btn-ghost" data-action="add-set">+ Add set</button>'
+      + '<p class="hint">Leave sets empty to log it as a general activity instead.</p>'
+      + '</div>'
+      + '<div class="field-row">'
+      + '<div class="field"><label class="field-label" for="f-duration">Duration (min)</label>'
+      + '<input type="number" id="f-duration" min="0" step="1" placeholder="optional" value="'+durationVal+'"></div>'
+      + '<div class="field field-grow"><label class="field-label" for="f-notes">Notes</label>'
+      + '<input type="text" id="f-notes" placeholder="optional" value="'+notesVal+'"></div>'
+      + '</div>'
+      + actionsHtml
+      + '</form>'
+      + '</section>';
+  }
+
+  function renderRoutineDraftForm(){
+    var routine = null;
+    for (var i=0;i<STATE.routines.length;i++){ if (STATE.routines[i].id === routineDraft.routineId) { routine = STATE.routines[i]; break; } }
+    var routineName = routine ? routine.name : 'Routine';
+    var exBlocks = routineDraft.exercises.map(function(ex, idx){
+      var setsHtml = (ex.sets && ex.sets.length) ? ex.sets.map(function(s){ return renderSetRow(s); }).join('') : renderSetRow();
+      return '<div class="routine-exercise-block" data-ex-index="'+idx+'">'
+        + '<label class="routine-exercise-toggle">'
+        + '<input type="checkbox" class="routine-include-checkbox"'+(ex.include ? ' checked' : '')+'>'
+        + '<span class="history-name">'+escapeHtml(ex.name)+'</span>'
+        + '</label>'
+        + '<div class="routine-sets-list">'+setsHtml+'</div>'
+        + '<button type="button" class="btn-ghost btn-small" data-action="routine-add-set">+ Add set</button>'
+        + '</div>';
+    }).join('');
+    return '<section class="card" aria-labelledby="log-heading">'
+      + '<div class="log-heading-row"><h2 id="log-heading">Log: '+escapeHtml(routineName)+'</h2><span class="editing-tag">Routine</span></div>'
+      + '<div class="field"><label class="field-label" for="rd-date">Date</label>'
+      + '<input type="date" id="rd-date" value="'+routineDraft.date+'" required></div>'
+      + '<p class="hint">Uncheck an exercise to skip it today. Reps and weight are prefilled from the routine — adjust anything before logging.</p>'
+      + '<div id="routine-draft-exercises">'+exBlocks+'</div>'
+      + '<div class="form-actions">'
+      + '<button type="button" class="btn-primary" data-action="save-routine-log">Log routine</button>'
+      + '<button type="button" class="btn-ghost" data-action="cancel-routine-log">Cancel</button>'
+      + '</div>'
+      + '</section>';
+  }
+
+  function renderRoutineExerciseBlock(ex){
+    var name = (ex && ex.name) ? escapeHtml(ex.name) : '';
+    var setsArr = (ex && ex.sets && ex.sets.length) ? ex.sets : [{}];
+    var setsHtml = setsArr.map(function(s){ return renderSetRow(s); }).join('');
+    return '<div class="routine-exercise-block">'
+      + '<div class="routine-exercise-header">'
+      + '<input type="text" class="routine-exercise-name" list="exercise-options" placeholder="Exercise name" value="'+name+'">'
+      + '<button type="button" class="history-action-btn is-delete" data-action="routine-remove-exercise" aria-label="Remove exercise">Remove</button>'
+      + '</div>'
+      + '<div class="routine-sets-list">'+setsHtml+'</div>'
+      + '<button type="button" class="btn-ghost btn-small" data-action="routine-add-set">+ Add set</button>'
+      + '</div>';
+  }
+
+  function renderRoutineEditorCard(){
+    var editing = routineEditorState.id ? STATE.routines.filter(function(r){ return r.id === routineEditorState.id; })[0] : null;
+    var name = editing ? escapeHtml(editing.name) : '';
+    var exercises = editing && editing.exercises.length ? editing.exercises : [{ name:'', sets:[{}] }];
+    var exBlocksHtml = exercises.map(function(ex){ return renderRoutineExerciseBlock(ex); }).join('');
+    return '<section class="card" aria-labelledby="routines-heading">'
+      + '<h2 id="routines-heading">'+(editing ? 'Edit routine' : 'New routine')+'</h2>'
+      + '<div class="field"><label class="field-label" for="routine-name">Routine name</label>'
+      + '<input type="text" id="routine-name" placeholder="e.g. Chest Day" value="'+name+'" required></div>'
+      + '<div id="routine-exercises-list">'+exBlocksHtml+'</div>'
+      + '<button type="button" class="btn-ghost" data-action="routine-add-exercise">+ Add exercise</button>'
+      + '<div class="form-actions">'
+      + '<button type="button" class="btn-primary" data-action="save-routine">Save routine</button>'
+      + '<button type="button" class="btn-ghost" data-action="cancel-routine-edit">Cancel</button>'
+      + '</div>'
+      + '</section>';
+  }
+
+  function renderRoutinesCard(){
+    if (routineEditorState) return renderRoutineEditorCard();
+    var routines = STATE.routines;
+    var bodyHtml;
+    if (!routines.length) {
+      bodyHtml = '<p class="empty-note">No routines yet — build one to pull a set of exercises into the tracker in one go.</p>';
+    } else {
+      bodyHtml = '<ul class="routine-list">' + routines.map(function(r){
+        var exNames = r.exercises.map(function(ex){ return ex.name; }).join(', ');
+        return '<li class="routine-item">'
+          + '<div class="routine-item-main"><span class="history-name">'+escapeHtml(r.name)+'</span>'
+          + '<p class="history-meta">'+escapeHtml(exNames)+'</p></div>'
+          + '<div class="routine-item-actions">'
+          + '<button type="button" class="btn-primary btn-small" data-action="start-routine" data-id="'+escapeHtml(r.id)+'">Start</button>'
+          + '<button type="button" class="history-action-btn is-edit" data-action="edit-routine" data-id="'+escapeHtml(r.id)+'" aria-label="Edit '+escapeHtml(r.name)+'">Edit</button>'
+          + '<button type="button" class="history-action-btn is-delete" data-action="delete-routine" data-id="'+escapeHtml(r.id)+'" aria-label="Delete '+escapeHtml(r.name)+'">Delete</button>'
+          + '</div></li>';
+      }).join('') + '</ul>';
+    }
+    return '<section class="card" aria-labelledby="routines-heading">'
+      + '<h2 id="routines-heading">Routines</h2>'
+      + bodyHtml
+      + '<button type="button" class="btn-ghost" data-action="new-routine">+ New routine</button>'
+      + '</section>';
+  }
+
+  function renderConsistencyCard(){
+    var weekStreak = computeWeekStreak();
+    var counts = weekSessionCounts();
+    var thisWeekCount = counts[weekKey(new Date())] || 0;
+    var thisWeekQualified = thisWeekCount >= WEEK_GOAL;
+    var cells = buildWeekCells(16);
+    var cellsHtml = cells.map(function(c){
+      var cls = 'week-cell';
+      if (c.count >= WEEK_GOAL) cls += ' is-qualified';
+      else if (c.count > 0) cls += ' is-partial';
+      if (c.isCurrent) cls += ' is-current';
+      var dayWord = c.count === 1 ? 'day' : 'days';
+      var titleText = formatWeekLabel(c.key) + ' — ' + c.count + ' ' + dayWord + ' logged';
+      return '<div class="'+cls+'" title="'+escapeHtml(titleText)+'"></div>';
+    }).join('');
+    return '<section class="card" aria-labelledby="consistency-heading">'
+      + '<h2 id="consistency-heading">Consistency</h2>'
+      + '<div class="stat-row">'
+      + '<div class="stat-tile"><span class="stat-value">'+weekStreak+'</span><span class="stat-label">week streak</span></div>'
+      + '<div class="stat-tile'+(thisWeekQualified?' is-qualified':'')+'"><span class="stat-value">'+thisWeekCount+'/'+WEEK_GOAL+'</span><span class="stat-label">days this week</span></div>'
+      + '</div>'
+      + '<div class="heatmap">'+cellsHtml+'</div>'
+      + '<p class="hint">A week counts toward your streak once you\'ve logged a workout on '+WEEK_GOAL+'+ different days. Logging several exercises in one day still counts as one day. The dashed cell is the current week, still in progress.</p>'
+      + '</section>';
+  }
+
+  function buildLineChartSVG(series){
+    var W = 640, H = 220, padL = 40, padR = 16, padT = 16, padB = 30;
+    var innerW = W - padL - padR, innerH = H - padT - padB;
+    var points = series.points;
+    var n = points.length;
+    var values = points.map(function(p){ return p.value; });
+    var min = Math.min.apply(null, values), max = Math.max.apply(null, values);
+    if (min === max) { min -= 1; max += 1; }
+    var padV = (max-min) * 0.15;
+    var yMin = Math.max(0, min - padV), yMax = max + padV;
+    if (yMax === yMin) yMax = yMin + 1;
+
+    function xPos(i){ return n<=1 ? padL+innerW/2 : padL + (innerW * i/(n-1)); }
+    function yPos(v){ return padT + innerH - ((v-yMin)/(yMax-yMin))*innerH; }
+
+    var pathD = points.map(function(p,i){
+      return (i===0?'M':'L') + xPos(i).toFixed(1) + ' ' + yPos(p.value).toFixed(1);
+    }).join(' ');
+    var baseline = (padT+innerH).toFixed(1);
+    var areaD = pathD + ' L ' + xPos(n-1).toFixed(1) + ' ' + baseline + ' L ' + xPos(0).toFixed(1) + ' ' + baseline + ' Z';
+
+    var gridVals = [yMin, (yMin+yMax)/2, yMax];
+    var gridLines = gridVals.map(function(v){
+      var yv = yPos(v).toFixed(1);
+      return '<line x1="'+padL+'" y1="'+yv+'" x2="'+(W-padR)+'" y2="'+yv+'" class="chart-grid" />'
+        + '<text x="'+(padL-8)+'" y="'+(parseFloat(yv)+4).toFixed(1)+'" class="chart-tick" text-anchor="end">'+Math.round(v)+'</text>';
+    }).join('');
+
+    var dots = points.map(function(p,i){
+      var cx = xPos(i).toFixed(1), cy = yPos(p.value).toFixed(1);
+      var isLast = i===n-1;
+      var unit = series.metric==='weight' ? (' ' + STATE.unit) : ' reps';
+      var tip = escapeHtml(formatDateLabel(p.date) + ' · ' + p.value + unit);
+      return '<circle cx="'+cx+'" cy="'+cy+'" r="'+(isLast?6:4)+'" class="chart-dot"><title>'+tip+'</title></circle>';
+    }).join('');
+
+    var last = points[n-1];
+    var unitLabel = series.metric==='weight' ? (' ' + STATE.unit) : ' reps';
+    var endLabel = '<text x="'+(xPos(n-1)+8).toFixed(1)+'" y="'+(yPos(last.value)-10).toFixed(1)+'" class="chart-endlabel" text-anchor="end">'+last.value+unitLabel+'</text>';
+
+    var xTicks = '<text x="'+padL+'" y="'+(H-8)+'" class="chart-tick" text-anchor="start">'+escapeHtml(formatDateLabel(points[0].date))+'</text>'
+      + '<text x="'+(W-padR)+'" y="'+(H-8)+'" class="chart-tick" text-anchor="end">'+escapeHtml(formatDateLabel(points[n-1].date))+'</text>';
+
+    return '<svg viewBox="0 0 '+W+' '+H+'" class="chart-svg" role="img" aria-label="Progress chart for '+escapeHtml(series.metric)+'">'
+      + gridLines + '<path d="'+areaD+'" class="chart-area" /><path d="'+pathD+'" class="chart-line" />' + dots + endLabel + xTicks
+      + '</svg>';
+  }
+
+  function renderProgressBody(){
+    var names = exerciseNames();
+    if (!names.length) {
+      return '<p class="empty-note">Log a session with sets to start tracking progress here.</p>';
+    }
+    if (!selectedExercise || names.indexOf(selectedExercise) === -1) {
+      var strengthEntries = STATE.workouts.filter(function(w){ return w.sets && w.sets.length; });
+      strengthEntries = strengthEntries.slice().sort(function(a,b){ return a.date < b.date ? 1 : -1; });
+      selectedExercise = strengthEntries[0].name;
+    }
+    var series = seriesFor(selectedExercise);
+    var optionsHtml = names.map(function(n){
+      return '<option value="'+escapeHtml(n)+'"'+(n===selectedExercise?' selected':'')+'>'+escapeHtml(n)+'</option>';
+    }).join('');
+    var metricLabel = series.metric === 'weight' ? ('Top set weight per session (' + STATE.unit + ')') : 'Total reps per session';
+    var chartHtml;
+    if (series.points.length < 2) {
+      var p = series.points[0];
+      var unit = series.metric==='weight' ? (' ' + STATE.unit) : ' reps';
+      chartHtml = '<p class="empty-note">One session logged so far — ' + p.value + unit + ' on ' + escapeHtml(formatDateLabel(p.date)) + '. Log another to see the trend.</p>';
+    } else {
+      chartHtml = buildLineChartSVG(series);
+    }
+    return '<div class="progress-controls"><label class="field-label" for="exercise-picker">Exercise</label>'
+      + '<select id="exercise-picker" data-action="chart-select">'+optionsHtml+'</select></div>'
+      + '<p class="chart-caption">'+escapeHtml(selectedExercise)+' — '+metricLabel+'</p>'
+      + chartHtml
+      + '<p class="chart-footnote">Full data for every session is in your history below.</p>';
+  }
+
+  function renderProgressCard(){
+    return '<section class="card" aria-labelledby="progress-heading">'
+      + '<h2 id="progress-heading">Progress</h2>'
+      + '<div id="progress-body">'+renderProgressBody()+'</div>'
+      + '</section>';
+  }
+
+  function renderHistoryCard(){
+    if (!STATE.workouts.length) {
+      return '<section class="card" aria-labelledby="history-heading">'
+        + '<h2 id="history-heading">History</h2>'
+        + '<p class="empty-note">Nothing logged yet — your first session will show up here.</p>'
+        + '</section>';
+    }
+    var groups = {};
+    var order = [];
+    var sorted = STATE.workouts.slice().sort(function(a,b){ return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); });
+    sorted.forEach(function(w){
+      if (!groups[w.date]) { groups[w.date] = []; order.push(w.date); }
+      groups[w.date].push(w);
+    });
+    var groupsHtml = order.map(function(date){
+      var items = groups[date].map(function(w){
+        var isStrength = w.sets && w.sets.length > 0;
+        var badgeClass = isStrength ? 'badge-strength' : 'badge-general';
+        var badgeText = isStrength ? 'Strength' : 'General';
+        var metaBits = [];
+        if (isStrength) {
+          var setsText = w.sets.map(function(s){
+            return s.weight > 0 ? (s.reps + '×' + s.weight + ' ' + STATE.unit) : (s.reps + ' reps');
+          }).join(', ');
+          metaBits.push(setsText);
+        }
+        if (w.duration) metaBits.push(w.duration + ' min');
+        if (w.notes) metaBits.push(escapeHtml(w.notes));
+        var metaHtml = metaBits.length ? '<p class="history-meta">'+metaBits.join(' · ')+'</p>' : '';
+        return '<li class="history-item">'
+          + '<div class="history-item-main"><span class="badge '+badgeClass+'">'+badgeText+'</span>'
+          + '<span class="history-name">'+escapeHtml(w.name)+'</span></div>'
+          + metaHtml
+          + '<div class="history-actions">'
+          + '<button type="button" class="history-action-btn is-edit" data-action="edit-workout" data-id="'+escapeHtml(w.id)+'" aria-label="Edit '+escapeHtml(w.name)+'">Edit</button>'
+          + '<button type="button" class="history-action-btn is-delete" data-action="delete-workout" data-id="'+escapeHtml(w.id)+'" aria-label="Delete '+escapeHtml(w.name)+'">Delete</button>'
+          + '</div>'
+          + '</li>';
+      }).join('');
+      return '<div class="history-group"><h3 class="history-date">'+escapeHtml(formatDateLabel(date))+'</h3>'
+        + '<ul class="history-list">'+items+'</ul></div>';
+    }).join('');
+    return '<section class="card" aria-labelledby="history-heading">'
+      + '<h2 id="history-heading">History</h2>'+groupsHtml+'</section>';
+  }
+
+  function renderCalendarBody(){
+    var year = calendarView.year, month = calendarView.month;
+    var cells = buildCalendarGrid(year, month);
+    var todayIso = todayISO();
+    var todayNow = new Date();
+    var isCurrentMonth = (year === todayNow.getFullYear() && month === todayNow.getMonth());
+    var weekdayLabels = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    var headerCells = weekdayLabels.map(function(l){ return '<div class="cal-weekday">'+l+'</div>'; }).join('');
+
+    var dayCells = cells.map(function(d){
+      if (!d) return '<div class="cal-cell is-empty"></div>';
+      var iso = isoLocal(d);
+      var entries = workoutsForDate(iso);
+      var cls = 'cal-cell';
+      if (entries.length) cls += ' is-logged';
+      if (iso === todayIso) cls += ' is-today';
+      if (iso === calendarSelected) cls += ' is-selected';
+      var exerciseWord = entries.length === 1 ? 'exercise' : 'exercises';
+      var titleText = entries.length ? ('Workout logged — ' + entries.length + ' ' + exerciseWord) : 'No workout logged';
+      return '<button type="button" class="'+cls+'" data-action="select-day" data-date="'+iso+'" title="'+escapeHtml(titleText)+'">'+d.getDate()+'</button>';
+    }).join('');
+
+    var detailHtml = '';
+    if (calendarSelected) {
+      var sel = workoutsForDate(calendarSelected);
+      if (sel.length) {
+        var rows = sel.map(function(w){
+          var isStrength = w.sets && w.sets.length > 0;
+          var bits = [];
+          if (isStrength) {
+            bits.push(w.sets.map(function(s){
+              return s.weight > 0 ? (s.reps + '×' + s.weight + ' ' + STATE.unit) : (s.reps + ' reps');
+            }).join(', '));
+          }
+          if (w.duration) bits.push(w.duration + ' min');
+          if (w.notes) bits.push(escapeHtml(w.notes));
+          return '<li class="cal-detail-item"><span class="history-name">'+escapeHtml(w.name)+'</span>'
+            + (bits.length ? ' — ' + bits.join(' · ') : '') + '</li>';
+        }).join('');
+        detailHtml = '<div class="cal-detail"><p class="field-label">'+escapeHtml(formatDateLabel(calendarSelected))+'</p>'
+          + '<ul class="cal-detail-list">'+rows+'</ul></div>';
+      } else {
+        detailHtml = '<div class="cal-detail"><p class="empty-note">No workout logged on '+escapeHtml(formatDateLabel(calendarSelected))+'.</p></div>';
+      }
+    }
+
+    return '<div class="calendar-header">'
+      + '<button type="button" class="cal-nav-btn" data-action="cal-prev" aria-label="Previous month">‹</button>'
+      + '<span class="cal-month-label">'+escapeHtml(monthLabel(year, month))+'</span>'
+      + '<button type="button" class="cal-nav-btn" data-action="cal-next" aria-label="Next month">›</button>'
+      + '</div>'
+      + '<div class="cal-weekdays">'+headerCells+'</div>'
+      + '<div class="cal-grid">'+dayCells+'</div>'
+      + (isCurrentMonth ? '' : '<button type="button" class="btn-ghost cal-today-btn" data-action="cal-today">Back to today</button>')
+      + detailHtml;
+  }
+
+  function renderCalendarCard(){
+    return '<section class="card" aria-labelledby="calendar-heading">'
+      + '<h2 id="calendar-heading">Calendar</h2>'
+      + '<div id="calendar-body">'+renderCalendarBody()+'</div>'
+      + '</section>';
+  }
+
+  function renderFooter(){
+    return '<footer class="footer wrap"><p>Ascent keeps every session in your account — open this same page on your phone or computer, signed in with the same Google account, to see it everywhere.</p></footer>';
+  }
+
+  function renderConfigNeededScreen(){
+    return '<div class="wrap config-screen">'
+      + '<span class="wordmark">Ascent</span>'
+      + '<h2>One quick setup step</h2>'
+      + '<p>This copy of Ascent needs your Firebase project\'s config pasted into the code before it can run. Open <code>index.html</code> in a text editor, find the block near the top marked <code>FIREBASE CONFIG</code>, and replace the placeholder values with the ones from your Firebase project — Project settings → General → "Your apps".</p>'
+      + '<p class="hint">See SETUP.md (in the same folder) for the exact click-by-click steps.</p>'
+      + '</div>';
+  }
+  function renderSignInScreen(){
+    var errorHtml = authError ? '<p class="auth-error">'+escapeHtml(authError)+'</p>' : '';
+    return '<div class="auth-screen">'
+      + '<span class="wordmark">Ascent</span>'
+      + '<p class="hint">Sign in with Google to load your workouts and keep them synced across every device you sign in on.</p>'
+      + '<button type="button" class="btn-primary" data-action="sign-in">Sign in with Google</button>'
+      + errorHtml
+      + '</div>';
+  }
+  function renderLoadingScreen(){
+    return '<div class="auth-screen"><span class="wordmark">Ascent</span><p class="hint">Loading…</p></div>';
+  }
+  function renderApp(){
+    if (!firebaseReady) return renderConfigNeededScreen();
+    if (!authReady) return renderLoadingScreen();
+    if (!currentUser) return renderSignInScreen();
+    return renderTopbar()
+      + renderExerciseDatalist()
+      + '<main class="wrap">'
+      + renderLogCard()
+      + renderRoutinesCard()
+      + renderConsistencyCard()
+      + renderProgressCard()
+      + renderHistoryCard()
+      + renderCalendarCard()
+      + '</main>'
+      + renderFooter();
+  }
+
+  function renderAll(){
+    document.title = APP_TITLE;
+    document.getElementById('app').innerHTML = renderApp();
+    updateSyncBadge();
+  }
+
+  /* ================= events ================= */
+  function onSubmitLog(e){
+    e.preventDefault();
+    var form = e.target;
+    var date = form.querySelector('#f-date').value || todayISO();
+    var nameField = form.querySelector('#f-name');
+    var name = nameField.value.trim();
+    if (!name) { nameField.focus(); return; }
+    var setRows = form.querySelectorAll('#sets-list .set-row');
+    var sets = [];
+    for (var i=0;i<setRows.length;i++){
+      var repsInput = setRows[i].querySelector('[data-field="reps"]');
+      var weightInput = setRows[i].querySelector('[data-field="weight"]');
+      var reps = parseFloat(repsInput.value);
+      var weight = parseFloat(weightInput.value);
+      reps = isNaN(reps) ? 0 : reps;
+      weight = isNaN(weight) ? 0 : weight;
+      if (reps > 0 || weight > 0) sets.push({ reps: reps, weight: weight });
+    }
+    var durationField = form.querySelector('#f-duration');
+    var duration = parseFloat(durationField.value);
+    var notes = form.querySelector('#f-notes').value.trim();
+    var editTargetId = form.getAttribute('data-editing-id');
+
+    if (editTargetId) {
+      var idx = -1;
+      for (var j=0;j<STATE.workouts.length;j++){ if (STATE.workouts[j].id === editTargetId) { idx = j; break; } }
+      if (idx !== -1) {
+        STATE.workouts[idx] = {
+          id: editTargetId,
+          date: date,
+          name: name,
+          sets: sets,
+          duration: isNaN(duration) ? null : duration,
+          notes: notes
+        };
+      }
+      editingId = null;
+      renderAll();
+      persist();
+      return;
+    }
+
+    var entry = {
+      id: makeId(),
+      date: date,
+      name: name,
+      sets: sets,
+      duration: isNaN(duration) ? null : duration,
+      notes: notes
+    };
+    addWorkout(entry);
+  }
+
+  function startEdit(id){
+    clearDraftModes();
+    editingId = id;
+    renderAll();
+    var formEl = document.getElementById('log-form');
+    if (formEl && formEl.scrollIntoView) formEl.scrollIntoView({ behavior:'smooth', block:'start' });
+    var nameField = document.getElementById('f-name');
+    if (nameField) nameField.focus();
+  }
+
+  function cancelEdit(){
+    editingId = null;
+    renderAll();
+  }
+
+  function startRoutine(routineId){
+    var routine = null;
+    for (var i=0;i<STATE.routines.length;i++){ if (STATE.routines[i].id === routineId) { routine = STATE.routines[i]; break; } }
+    if (!routine) return;
+    clearDraftModes();
+    routineDraft = {
+      routineId: routineId,
+      date: todayISO(),
+      exercises: routine.exercises.map(function(ex){
+        return {
+          name: ex.name,
+          include: true,
+          sets: (ex.sets && ex.sets.length) ? ex.sets.map(function(s){ return { reps: s.reps, weight: s.weight }; }) : []
+        };
+      })
+    };
+    renderAll();
+    var formEl = document.getElementById('log-form') || document.getElementById('log-heading');
+    if (formEl && formEl.scrollIntoView) formEl.scrollIntoView({ behavior:'smooth', block:'start' });
+  }
+
+  function cancelRoutineLog(){
+    routineDraft = null;
+    renderAll();
+  }
+
+  function onSaveRoutineLog(){
+    var dateField = document.getElementById('rd-date');
+    var date = (dateField && dateField.value) || todayISO();
+    var blocks = document.querySelectorAll('#routine-draft-exercises .routine-exercise-block');
+    var newEntries = [];
+    for (var i=0;i<blocks.length;i++){
+      var checkbox = blocks[i].querySelector('.routine-include-checkbox');
+      if (checkbox && !checkbox.checked) continue;
+      var exIndex = parseInt(blocks[i].getAttribute('data-ex-index'), 10);
+      var exDraft = routineDraft.exercises[exIndex];
+      var exName = exDraft ? exDraft.name : '';
+      if (!exName) continue;
+      var setRows = blocks[i].querySelectorAll('.set-row');
+      var sets = [];
+      for (var j=0;j<setRows.length;j++){
+        var repsInput = setRows[j].querySelector('[data-field="reps"]');
+        var weightInput = setRows[j].querySelector('[data-field="weight"]');
+        var reps = parseFloat(repsInput.value);
+        var weight = parseFloat(weightInput.value);
+        reps = isNaN(reps) ? 0 : reps;
+        weight = isNaN(weight) ? 0 : weight;
+        if (reps > 0 || weight > 0) sets.push({ reps: reps, weight: weight });
+      }
+      newEntries.push({ id: makeId(), date: date, name: exName, sets: sets, duration: null, notes: '' });
+    }
+    if (!newEntries.length) { window.alert('Include at least one exercise to log.'); return; }
+    routineDraft = null;
+    newEntries.forEach(function(entry){ STATE.workouts.push(entry); });
+    renderAll();
+    persist();
+  }
+
+  function startNewRoutine(){
+    clearDraftModes();
+    routineEditorState = { id: null };
+    renderAll();
+    var nameField = document.getElementById('routine-name');
+    if (nameField) nameField.focus();
+  }
+
+  function startEditRoutine(id){
+    clearDraftModes();
+    routineEditorState = { id: id };
+    renderAll();
+    var nameField = document.getElementById('routine-name');
+    if (nameField) nameField.focus();
+  }
+
+  function cancelRoutineEdit(){
+    routineEditorState = null;
+    renderAll();
+  }
+
+  function onSaveRoutine(){
+    var nameField = document.getElementById('routine-name');
+    var name = nameField.value.trim();
+    if (!name) { nameField.focus(); return; }
+    var blocks = document.querySelectorAll('#routine-exercises-list .routine-exercise-block');
+    var exercises = [];
+    for (var i=0;i<blocks.length;i++){
+      var exNameInput = blocks[i].querySelector('.routine-exercise-name');
+      var exName = exNameInput.value.trim();
+      if (!exName) continue;
+      var setRows = blocks[i].querySelectorAll('.set-row');
+      var sets = [];
+      for (var j=0;j<setRows.length;j++){
+        var repsInput = setRows[j].querySelector('[data-field="reps"]');
+        var weightInput = setRows[j].querySelector('[data-field="weight"]');
+        var reps = parseFloat(repsInput.value);
+        var weight = parseFloat(weightInput.value);
+        reps = isNaN(reps) ? 0 : reps;
+        weight = isNaN(weight) ? 0 : weight;
+        if (reps > 0 || weight > 0) sets.push({ reps: reps, weight: weight });
+      }
+      exercises.push({ name: exName, sets: sets });
+    }
+    if (!exercises.length) { window.alert('Add at least one exercise with a name.'); return; }
+    if (routineEditorState.id) {
+      var idx = -1;
+      for (var k=0;k<STATE.routines.length;k++){ if (STATE.routines[k].id === routineEditorState.id) { idx = k; break; } }
+      if (idx !== -1) STATE.routines[idx] = { id: routineEditorState.id, name: name, exercises: exercises };
+    } else {
+      STATE.routines.push({ id: makeId(), name: name, exercises: exercises });
+    }
+    routineEditorState = null;
+    renderAll();
+    persist();
+  }
+
+  function onAppClick(e){
+    var btn = e.target.closest ? e.target.closest('[data-action]') : null;
+    if (!btn) return;
+    var action = btn.getAttribute('data-action');
+    if (action === 'add-set') {
+      document.getElementById('sets-list').insertAdjacentHTML('beforeend', renderSetRow());
+    } else if (action === 'remove-set') {
+      var row = btn.closest('.set-row');
+      if (row) row.parentNode.removeChild(row);
+    } else if (action === 'delete-workout') {
+      var id = btn.getAttribute('data-id');
+      if (window.confirm('Delete this entry?')) deleteWorkout(id);
+    } else if (action === 'edit-workout') {
+      startEdit(btn.getAttribute('data-id'));
+    } else if (action === 'cancel-edit') {
+      cancelEdit();
+    } else if (action === 'set-unit') {
+      setUnit(btn.getAttribute('data-unit'));
+    } else if (action === 'cal-prev') {
+      calendarView.month -= 1;
+      if (calendarView.month < 0) { calendarView.month = 11; calendarView.year -= 1; }
+      document.getElementById('calendar-body').innerHTML = renderCalendarBody();
+    } else if (action === 'cal-next') {
+      calendarView.month += 1;
+      if (calendarView.month > 11) { calendarView.month = 0; calendarView.year += 1; }
+      document.getElementById('calendar-body').innerHTML = renderCalendarBody();
+    } else if (action === 'cal-today') {
+      var t = new Date();
+      calendarView.year = t.getFullYear();
+      calendarView.month = t.getMonth();
+      document.getElementById('calendar-body').innerHTML = renderCalendarBody();
+    } else if (action === 'select-day') {
+      var dsel = btn.getAttribute('data-date');
+      calendarSelected = (calendarSelected === dsel) ? null : dsel;
+      document.getElementById('calendar-body').innerHTML = renderCalendarBody();
+    } else if (action === 'new-routine') {
+      startNewRoutine();
+    } else if (action === 'edit-routine') {
+      startEditRoutine(btn.getAttribute('data-id'));
+    } else if (action === 'delete-routine') {
+      var routineIdToDelete = btn.getAttribute('data-id');
+      if (window.confirm('Delete this routine? Logged sessions from it are not affected.')) deleteRoutine(routineIdToDelete);
+    } else if (action === 'cancel-routine-edit') {
+      cancelRoutineEdit();
+    } else if (action === 'save-routine') {
+      onSaveRoutine();
+    } else if (action === 'routine-add-exercise') {
+      document.getElementById('routine-exercises-list').insertAdjacentHTML('beforeend', renderRoutineExerciseBlock());
+    } else if (action === 'routine-remove-exercise') {
+      var exBlock = btn.closest('.routine-exercise-block');
+      if (exBlock) exBlock.parentNode.removeChild(exBlock);
+    } else if (action === 'routine-add-set') {
+      var hostBlock = btn.closest('.routine-exercise-block');
+      if (hostBlock) hostBlock.querySelector('.routine-sets-list').insertAdjacentHTML('beforeend', renderSetRow());
+    } else if (action === 'start-routine') {
+      startRoutine(btn.getAttribute('data-id'));
+    } else if (action === 'cancel-routine-log') {
+      cancelRoutineLog();
+    } else if (action === 'save-routine-log') {
+      onSaveRoutineLog();
+    } else if (action === 'sign-in') {
+      handleSignIn();
+    } else if (action === 'sign-out') {
+      if (auth) auth.signOut();
+    }
+  }
+  function onAppChange(e){
+    if (e.target && e.target.id === 'exercise-picker') {
+      selectedExercise = e.target.value;
+      document.getElementById('progress-body').innerHTML = renderProgressBody();
+    }
+  }
+  function onAppSubmit(e){
+    if (e.target && e.target.id === 'log-form') onSubmitLog(e);
+  }
+
+  function wireEvents(){
+    var app = document.getElementById('app');
+    app.addEventListener('click', onAppClick);
+    app.addEventListener('change', onAppChange);
+    app.addEventListener('submit', onAppSubmit);
+  }
+
+  /* ================= init ================= */
+  document.head.insertAdjacentHTML('beforeend', '<style>' + CSS_TEXT + '</style>');
+  document.title = APP_TITLE;
+  wireEvents();
+  initFirebaseApp();
+})();
+</script>
+</body>
+</html>
