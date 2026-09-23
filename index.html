@@ -433,10 +433,13 @@
     return streak;
   }
   function buildWeekCells(weeksCount){
+    // Newest first: the current week is cell 0 (leftmost), each older week
+    // follows to the right — so an active streak reads as a highlighted run
+    // starting at the left edge and extending rightward into the past.
     var counts = weekSessionCounts();
     var currentStart = startOfWeekDate(new Date());
     var cells = [];
-    for (var i = weeksCount - 1; i >= 0; i--){
+    for (var i = 0; i < weeksCount; i++){
       var start = new Date(currentStart); start.setDate(start.getDate() - i*7);
       var key = isoLocal(start);
       cells.push({ key: key, count: counts[key] || 0, isCurrent: i === 0 });
@@ -516,7 +519,16 @@
   function persist(){
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(STATE)); } catch(e){}
     if (!currentUser || !db) return;
-    db.collection('ascentUsers').doc(currentUser.uid).set(STATE).catch(function(){
+    // Tied directly to THIS write's own outcome, not just the live listener —
+    // Firestore only resolves this promise once the backend has actually
+    // acknowledged the write (it stays pending while offline), so this is a
+    // reliable "truly synced" signal even if the realtime listener's own
+    // connection was frozen or dropped (e.g. the tab was backgrounded) and
+    // never separately delivered a confirming snapshot.
+    setSyncStatus('syncing');
+    db.collection('ascentUsers').doc(currentUser.uid).set(STATE).then(function(){
+      setSyncStatus('synced');
+    }).catch(function(){
       setSyncStatus('error');
     });
   }
