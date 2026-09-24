@@ -377,6 +377,10 @@
     });
   }
   function pad(n){ return n < 10 ? '0'+n : ''+n; }
+  // Rounds a weight value ONLY for display — the stored number is never
+  // rounded (see convertWeightValue), so repeatedly toggling lb/kg never
+  // compounds precision loss into what's actually saved.
+  function formatWeight(v){ return Math.round(v * 10) / 10; }
   function isoLocal(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
   function todayISO(){ return isoLocal(new Date()); }
   function parseISO(iso){
@@ -590,7 +594,11 @@
     if (!value || fromUnit === toUnit) return value;
     var kg = fromUnit === 'kg' ? value : value / LB_PER_KG;
     var out = toUnit === 'kg' ? kg : kg * LB_PER_KG;
-    return Math.round(out * 10) / 10;
+    // No rounding here — the stored value stays at full floating-point
+    // precision so a lb->kg->lb round trip returns (within an invisible
+    // epsilon) the exact original number, no matter how many times you
+    // toggle. Rounding only happens at display time, via formatWeight().
+    return out;
   }
   function setUnit(newUnit){
     if (newUnit !== 'lb' && newUnit !== 'kg') return;
@@ -662,7 +670,7 @@
 
   function renderSetRow(prefill){
     var repsVal = prefill && prefill.reps ? prefill.reps : '';
-    var weightVal = prefill && prefill.weight ? prefill.weight : '';
+    var weightVal = prefill && prefill.weight ? formatWeight(prefill.weight) : '';
     var weightPlaceholder = STATE.unit + ' (opt.)';
     return '<div class="set-row">'
       + '<input type="number" inputmode="decimal" min="0" step="0.5" class="set-weight" placeholder="'+weightPlaceholder+'" value="'+weightVal+'" data-field="weight" aria-label="Weight ('+STATE.unit+')">'
@@ -871,13 +879,15 @@
       var cx = xPos(i).toFixed(1), cy = yPos(p.value).toFixed(1);
       var isLast = i===n-1;
       var unit = series.metric==='weight' ? (' ' + STATE.unit) : ' reps';
-      var tip = escapeHtml(formatDateLabel(p.date) + ' · ' + p.value + unit);
+      var dispVal = series.metric==='weight' ? formatWeight(p.value) : p.value;
+      var tip = escapeHtml(formatDateLabel(p.date) + ' · ' + dispVal + unit);
       return '<circle cx="'+cx+'" cy="'+cy+'" r="'+(isLast?6:4)+'" class="chart-dot"><title>'+tip+'</title></circle>';
     }).join('');
 
     var last = points[n-1];
     var unitLabel = series.metric==='weight' ? (' ' + STATE.unit) : ' reps';
-    var endLabel = '<text x="'+(xPos(n-1)+8).toFixed(1)+'" y="'+(yPos(last.value)-10).toFixed(1)+'" class="chart-endlabel" text-anchor="end">'+last.value+unitLabel+'</text>';
+    var endLabelVal = series.metric==='weight' ? formatWeight(last.value) : last.value;
+    var endLabel = '<text x="'+(xPos(n-1)+8).toFixed(1)+'" y="'+(yPos(last.value)-10).toFixed(1)+'" class="chart-endlabel" text-anchor="end">'+endLabelVal+unitLabel+'</text>';
 
     var xTicks = '<text x="'+padL+'" y="'+(H-8)+'" class="chart-tick" text-anchor="start">'+escapeHtml(formatDateLabel(points[0].date))+'</text>'
       + '<text x="'+(W-padR)+'" y="'+(H-8)+'" class="chart-tick" text-anchor="end">'+escapeHtml(formatDateLabel(points[n-1].date))+'</text>';
@@ -906,7 +916,8 @@
     if (series.points.length < 2) {
       var p = series.points[0];
       var unit = series.metric==='weight' ? (' ' + STATE.unit) : ' reps';
-      chartHtml = '<p class="empty-note">One session logged so far — ' + p.value + unit + ' on ' + escapeHtml(formatDateLabel(p.date)) + '. Log another to see the trend.</p>';
+      var pDispVal = series.metric==='weight' ? formatWeight(p.value) : p.value;
+      chartHtml = '<p class="empty-note">One session logged so far — ' + pDispVal + unit + ' on ' + escapeHtml(formatDateLabel(p.date)) + '. Log another to see the trend.</p>';
     } else {
       chartHtml = buildLineChartSVG(series);
     }
@@ -946,7 +957,7 @@
         var metaBits = [];
         if (isStrength) {
           var setsText = w.sets.map(function(s){
-            return s.weight > 0 ? (s.weight + ' ' + STATE.unit + '×' + s.reps) : (s.reps + ' reps');
+            return s.weight > 0 ? (formatWeight(s.weight) + ' ' + STATE.unit + '×' + s.reps) : (s.reps + ' reps');
           }).join(', ');
           metaBits.push(setsText);
         }
@@ -1001,7 +1012,7 @@
           var bits = [];
           if (isStrength) {
             bits.push(w.sets.map(function(s){
-              return s.weight > 0 ? (s.weight + ' ' + STATE.unit + '×' + s.reps) : (s.reps + ' reps');
+              return s.weight > 0 ? (formatWeight(s.weight) + ' ' + STATE.unit + '×' + s.reps) : (s.reps + ' reps');
             }).join(', '));
           }
           if (w.duration) bits.push(w.duration + ' min');
