@@ -730,6 +730,7 @@
     var routineName = routine ? routine.name : 'Routine';
     var exBlocks = routineDraft.exercises.map(function(ex, idx){
       var setsHtml = (ex.sets && ex.sets.length) ? ex.sets.map(function(s){ return renderSetRow(s); }).join('') : renderSetRow();
+      var noteVal = ex.notes ? escapeHtml(ex.notes) : '';
       return '<div class="routine-exercise-block" data-ex-index="'+idx+'">'
         + '<label class="routine-exercise-toggle">'
         + '<input type="checkbox" class="routine-include-checkbox"'+(ex.include ? ' checked' : '')+'>'
@@ -737,6 +738,8 @@
         + '</label>'
         + '<div class="routine-sets-list">'+setsHtml+'</div>'
         + '<button type="button" class="btn-ghost btn-small" data-action="routine-add-set">+ Add set</button>'
+        + '<div class="field"><label class="field-label" for="rd-note-'+idx+'">Note</label>'
+        + '<input type="text" id="rd-note-'+idx+'" class="routine-exercise-note" placeholder="optional" value="'+noteVal+'"></div>'
         + '</div>';
     }).join('');
     return '<section class="card" aria-labelledby="log-heading">'
@@ -1159,7 +1162,8 @@
         return {
           name: ex.name,
           include: true,
-          sets: (ex.sets && ex.sets.length) ? ex.sets.map(function(s){ return { reps: s.reps, weight: s.weight }; }) : []
+          sets: (ex.sets && ex.sets.length) ? ex.sets.map(function(s){ return { reps: s.reps, weight: s.weight }; }) : [],
+          notes: ''
         };
       })
     };
@@ -1196,7 +1200,9 @@
         weight = isNaN(weight) ? 0 : weight;
         if (reps > 0 || weight > 0) sets.push({ reps: reps, weight: weight });
       }
-      newEntries.push({ id: makeId(), date: date, name: exName, sets: sets, duration: null, notes: '' });
+      var noteInput = blocks[i].querySelector('.routine-exercise-note');
+      var exNotes = noteInput ? noteInput.value.trim() : '';
+      newEntries.push({ id: makeId(), date: date, name: exName, sets: sets, duration: null, notes: exNotes });
     }
     if (!newEntries.length) { window.alert('Include at least one exercise to log.'); return; }
     routineDraft = null;
