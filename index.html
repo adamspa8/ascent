@@ -745,9 +745,22 @@
   }
 
   function renderRoutineDraftForm(){
-    var routine = null;
-    for (var i=0;i<STATE.routines.length;i++){ if (STATE.routines[i].id === routineDraft.routineId) { routine = STATE.routines[i]; break; } }
-    var routineName = routine ? routine.name : 'Routine';
+    // Two ways to land here: starting a saved routine (routineDraft.routineId
+    // set, sets prefilled from the routine template) or repeating a prior
+    // day's actual logged workout (routineDraft.sourceLabel set instead —
+    // see repeatDay() — sets prefilled from what was really done that day).
+    var headingName, tagText, hintText;
+    if (routineDraft.sourceLabel) {
+      headingName = routineDraft.sourceLabel;
+      tagText = 'Repeat';
+      hintText = 'Uncheck an exercise to skip it today. Reps and weight are prefilled from that day — adjust anything before logging.';
+    } else {
+      var routine = null;
+      for (var i=0;i<STATE.routines.length;i++){ if (STATE.routines[i].id === routineDraft.routineId) { routine = STATE.routines[i]; break; } }
+      headingName = routine ? routine.name : 'Routine';
+      tagText = 'Routine';
+      hintText = 'Uncheck an exercise to skip it today. Reps and weight are prefilled from the routine — adjust anything before logging.';
+    }
     var exBlocks = routineDraft.exercises.map(function(ex, idx){
       var setsHtml = (ex.sets && ex.sets.length) ? ex.sets.map(function(s){ return renderSetRow(s); }).join('') : renderSetRow();
       var noteVal = ex.notes ? escapeHtml(ex.notes) : '';
@@ -763,10 +776,10 @@
         + '</div>';
     }).join('');
     return '<section class="card" aria-labelledby="log-heading">'
-      + '<div class="log-heading-row"><h2 id="log-heading">Log: '+escapeHtml(routineName)+'</h2><span class="editing-tag">Routine</span></div>'
+      + '<div class="log-heading-row"><h2 id="log-heading">Log: '+escapeHtml(headingName)+'</h2><span class="editing-tag">'+escapeHtml(tagText)+'</span></div>'
       + '<div class="field"><label class="field-label" for="rd-date">Date</label>'
       + '<input type="date" id="rd-date" value="'+routineDraft.date+'" required></div>'
-      + '<p class="hint">Uncheck an exercise to skip it today. Reps and weight are prefilled from the routine — adjust anything before logging.</p>'
+      + '<p class="hint">'+hintText+'</p>'
       + '<div id="routine-draft-exercises">'+exBlocks+'</div>'
       + '<div class="form-actions">'
       + '<button type="button" class="btn-primary" data-action="save-routine-log">Log routine</button>'
@@ -986,7 +999,9 @@
           + '</div>'
           + '</li>';
       }).join('');
-      return '<div class="history-group"><h3 class="history-date">'+escapeHtml(formatDateLabel(date))+'</h3>'
+      return '<div class="history-group">'
+        + '<div class="log-heading-row"><h3 class="history-date">'+escapeHtml(formatDateLabel(date))+'</h3>'
+        + '<button type="button" class="btn-ghost btn-small" data-action="repeat-day" data-date="'+escapeHtml(date)+'">Repeat day</button></div>'
         + '<ul class="history-list">'+items+'</ul></div>';
     }).join('');
     return '<section class="card" aria-labelledby="history-heading">'
@@ -1032,7 +1047,9 @@
           return '<li class="cal-detail-item"><span class="history-name">'+escapeHtml(w.name)+'</span>'
             + (bits.length ? ' — ' + bits.join(' · ') : '') + '</li>';
         }).join('');
-        detailHtml = '<div class="cal-detail"><p class="field-label">'+escapeHtml(formatDateLabel(calendarSelected))+'</p>'
+        detailHtml = '<div class="cal-detail">'
+          + '<div class="log-heading-row"><p class="field-label">'+escapeHtml(formatDateLabel(calendarSelected))+'</p>'
+          + '<button type="button" class="btn-ghost btn-small" data-action="repeat-day" data-date="'+escapeHtml(calendarSelected)+'">Repeat day</button></div>'
           + '<ul class="cal-detail-list">'+rows+'</ul></div>';
       } else {
         detailHtml = '<div class="cal-detail"><p class="empty-note">No workout logged on '+escapeHtml(formatDateLabel(calendarSelected))+'.</p></div>';
@@ -1200,6 +1217,32 @@
     renderAll();
   }
 
+  // Pull a prior day's actually-logged workout back into today as an
+  // editable starting point — same draft/review flow as starting a routine,
+  // but seeded from real history (exact weights/reps you did that day)
+  // instead of a saved routine template.
+  function repeatDay(dateIso){
+    var entries = workoutsForDate(dateIso);
+    if (!entries.length) return;
+    clearDraftModes();
+    routineDraft = {
+      routineId: null,
+      date: todayISO(),
+      sourceLabel: formatDateLabel(dateIso),
+      exercises: entries.map(function(w){
+        return {
+          name: w.name,
+          include: true,
+          sets: (w.sets && w.sets.length) ? w.sets.map(function(s){ return { reps: s.reps, weight: s.weight }; }) : [],
+          notes: ''
+        };
+      })
+    };
+    renderAll();
+    var formEl = document.getElementById('log-form') || document.getElementById('log-heading');
+    if (formEl && formEl.scrollIntoView) formEl.scrollIntoView({ behavior:'smooth', block:'start' });
+  }
+
   function onSaveRoutineLog(){
     var dateField = document.getElementById('rd-date');
     var date = (dateField && dateField.value) || todayISO();
@@ -1351,6 +1394,8 @@
       cancelRoutineLog();
     } else if (action === 'save-routine-log') {
       onSaveRoutineLog();
+    } else if (action === 'repeat-day') {
+      repeatDay(btn.getAttribute('data-date'));
     } else if (action === 'sign-in') {
       handleSignIn();
     } else if (action === 'sign-out') {
