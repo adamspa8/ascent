@@ -569,7 +569,19 @@
           STATE = normalizeState(loadLocalCache());
           renderAll();
           setSyncStatus('checking');
-          unsubscribeSnapshot = db.collection('ascentUsers').doc(user.uid).onSnapshot(function(snap){
+          // { includeMetadataChanges: true } matters here: without it, Firestore
+          // only re-fires this callback when the document's CONTENT changes.
+          // On load, the very first snapshot often comes straight from the
+          // local offline cache (metadata.fromCache = true), and once the SDK
+          // quietly confirms with the server behind the scenes nothing about
+          // the data itself changes — so without this option that server
+          // confirmation never re-fires the callback, and the badge gets
+          // stuck on "offline" until some unrelated write (an edit, a unit
+          // toggle) happens to trigger a fresh snapshot. With it, a
+          // cache-to-server metadata transition alone re-fires the callback,
+          // so the badge updates to "synced" as soon as the server actually
+          // confirms, with no write needed.
+          unsubscribeSnapshot = db.collection('ascentUsers').doc(user.uid).onSnapshot({ includeMetadataChanges: true }, function(snap){
             var data = (snap && snap.exists) ? snap.data() : null;
             applyRemoteState(normalizeState(data));
             setSyncStatus(snap.metadata.hasPendingWrites ? 'syncing' : (snap.metadata.fromCache ? 'offline' : 'synced'));
